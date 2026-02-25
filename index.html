@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TimeLog</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      width: 100%;
+      max-width: 640px;
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #16213e;
+      letter-spacing: -0.5px;
+    }
+
+    header p {
+      color: #555;
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 640px;
+      margin-bottom: 1.5rem;
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #444;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+    }
+
+    .timer-display {
+      font-size: 3.5rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -1px;
+      color: #16213e;
+      margin-bottom: 1.25rem;
+      text-align: center;
+    }
+
+    .task-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .task-row input {
+      flex: 1;
+      padding: 0.6rem 0.85rem;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .task-row input:focus { border-color: #4361ee; }
+
+    .btn {
+      padding: 0.6rem 1.25rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-start  { background: #4361ee; color: #fff; }
+    .btn-stop   { background: #e63946; color: #fff; }
+    .btn-clear  { background: #eee; color: #555; font-size: 0.8rem; padding: 0.4rem 0.85rem; }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 0.75rem;
+    }
+
+    .summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .summary span { font-size: 0.9rem; color: #666; }
+    .summary strong { color: #16213e; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 0.5rem 0.6rem;
+      color: #888;
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1.5px solid #eee;
+    }
+
+    tbody tr { border-bottom: 1px solid #f4f4f4; }
+    tbody tr:last-child { border-bottom: none; }
+
+    tbody td {
+      padding: 0.6rem 0.6rem;
+      color: #333;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: #aaa;
+      padding: 1.5rem 0;
+      font-size: 0.9rem;
+    }
+
+    .tag-task { color: #4361ee; font-weight: 500; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>TimeLog</h1>
+  <p>Track time for your tasks, simply.</p>
+</header>
+
+<!-- Timer card -->
+<div class="card">
+  <h2>Timer</h2>
+  <div class="timer-display" id="timer">00:00:00</div>
+  <div class="task-row">
+    <input type="text" id="taskInput" placeholder="Task name (optional)" maxlength="80" />
+  </div>
+  <div class="controls">
+    <button class="btn btn-start" id="startBtn" onclick="startTimer()">Start</button>
+    <button class="btn btn-stop"  id="stopBtn"  onclick="stopTimer()" disabled>Stop &amp; Log</button>
+  </div>
+</div>
+
+<!-- Log card -->
+<div class="card">
+  <h2>Log</h2>
+  <div class="summary">
+    <span>Today's total: <strong id="totalDisplay">0h 00m</strong></span>
+    <button class="btn btn-clear" onclick="clearLog()">Clear log</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Task</th>
+        <th>Started</th>
+        <th>Duration</th>
+      </tr>
+    </thead>
+    <tbody id="logBody">
+      <tr><td colspan="4" class="empty-state">No entries yet. Start the timer!</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  const STORAGE_KEY = 'timelog_entries';
+
+  let timerInterval = null;
+  let startTime = null;
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function formatElapsed(ms) {
+    const s = Math.floor(ms / 1000);
+    return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+  }
+
+  function formatDuration(ms) {
+    const totalMin = Math.floor(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    const s = Math.floor((ms % 60000) / 1000);
+    if (h > 0) return `${h}h ${pad(m)}m ${pad(s)}s`;
+    if (m > 0) return `${m}m ${pad(s)}s`;
+    return `${s}s`;
+  }
+
+  function formatTotal(ms) {
+    const totalMin = Math.floor(ms / 60000);
+    return `${Math.floor(totalMin / 60)}h ${pad(totalMin % 60)}m`;
+  }
+
+  function formatTime(ts) {
+    const d = new Date(ts);
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  // ── storage ───────────────────────────────────────────────────────────────
+  function loadEntries() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch { return []; }
+  }
+
+  function saveEntries(entries) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  }
+
+  // ── timer ─────────────────────────────────────────────────────────────────
+  function startTimer() {
+    startTime = Date.now();
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('stopBtn').disabled  = false;
+    document.getElementById('taskInput').disabled = true;
+
+    timerInterval = setInterval(() => {
+      document.getElementById('timer').textContent =
+        formatElapsed(Date.now() - startTime);
+    }, 500);
+  }
+
+  function stopTimer() {
+    if (!startTime) return;
+    clearInterval(timerInterval);
+    timerInterval = null;
+
+    const duration = Date.now() - startTime;
+    const task = document.getElementById('taskInput').value.trim() || 'Untitled task';
+
+    const entries = loadEntries();
+    entries.unshift({ task, start: startTime, duration });
+    saveEntries(entries);
+
+    // reset UI
+    document.getElementById('timer').textContent = '00:00:00';
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('stopBtn').disabled  = true;
+    document.getElementById('taskInput').disabled = false;
+    document.getElementById('taskInput').value = '';
+    startTime = null;
+
+    renderLog();
+  }
+
+  // ── log rendering ─────────────────────────────────────────────────────────
+  function renderLog() {
+    const entries = loadEntries();
+    const tbody = document.getElementById('logBody');
+
+    if (entries.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No entries yet. Start the timer!</td></tr>';
+      document.getElementById('totalDisplay').textContent = '0h 00m';
+      return;
+    }
+
+    const today = new Date().toDateString();
+    let totalMs = 0;
+
+    tbody.innerHTML = entries.map((e, i) => {
+      if (new Date(e.start).toDateString() === today) totalMs += e.duration;
+      return `<tr>
+        <td>${entries.length - i}</td>
+        <td class="tag-task">${escHtml(e.task)}</td>
+        <td>${formatTime(e.start)}</td>
+        <td>${formatDuration(e.duration)}</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('totalDisplay').textContent = formatTotal(totalMs);
+  }
+
+  function clearLog() {
+    if (!confirm('Clear all log entries?')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    renderLog();
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  // init
+  renderLog();
+</script>
+</body>
+</html>
