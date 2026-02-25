@@ -1,319 +1,724 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TimeLog</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>TimeLog</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap');
+  :root {
+    --bg:#0e0f14; --surface:#16181f; --card:#1e2029; --border:#2a2d3a;
+    --accent:#5eff9e; --accent2:#ff6b6b; --accent3:#6b9fff;
+    --text:#e8eaf0; --muted:#6b7087; --radius:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px;}
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #f0f2f5;
-      color: #1a1a2e;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem 1rem;
-    }
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 20px 12px;position:sticky;top:0;z-index:100;}
+  .header-top{display:flex;align-items:center;justify-content:space-between;}
+  header h1{font-size:22px;font-weight:700;letter-spacing:-0.5px;}
+  header h1 span{color:var(--accent);}
+  .header-sub{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px;}
 
-    header {
-      width: 100%;
-      max-width: 640px;
-      margin-bottom: 2rem;
-    }
+  .sync-pill{display:flex;align-items:center;gap:5px;font-size:11px;font-family:'DM Mono',monospace;padding:5px 10px;border-radius:20px;border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+  .sync-pill.synced{border-color:var(--accent);color:var(--accent);}
+  .sync-pill.syncing{border-color:var(--accent3);color:var(--accent3);}
+  .sync-pill.error{border-color:var(--accent2);color:var(--accent2);}
+  .sync-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;}
+  .sync-pill.syncing .sync-dot{animation:blink 1s infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
 
-    header h1 {
-      font-size: 2rem;
-      font-weight: 700;
-      color: #16213e;
-      letter-spacing: -0.5px;
-    }
+  .nav{display:flex;background:var(--surface);border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;z-index:100;}
+  .nav button{flex:1;background:none;border:none;color:var(--muted);padding:12px 4px;font-size:10px;font-family:'Sora',sans-serif;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:color 0.2s;}
+  .nav button.active{color:var(--accent);}
+  .nav button svg{width:20px;height:20px;}
 
-    header p {
-      color: #555;
-      font-size: 0.9rem;
-      margin-top: 0.25rem;
-    }
+  .page{display:none;padding:16px;}
+  .page.active{display:block;}
+  .section-title{font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;}
 
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-      padding: 1.5rem;
-      width: 100%;
-      max-width: 640px;
-      margin-bottom: 1.5rem;
-    }
+  .project-select-wrap{position:relative;margin-bottom:16px;}
+  select{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);font-family:'Sora',sans-serif;font-size:15px;padding:14px 40px 14px 16px;border-radius:var(--radius);appearance:none;cursor:pointer;}
+  select:focus{outline:none;border-color:var(--accent);}
+  .select-arrow{position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted);}
 
-    .card h2 {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #444;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 1rem;
-    }
+  input[type="text"],input[type="date"],input[type="time"],input[type="number"],input[type="password"]{
+    width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);
+    font-family:'Sora',sans-serif;font-size:14px;padding:13px 16px;border-radius:var(--radius);color-scheme:dark;
+  }
+  input:focus{outline:none;border-color:var(--accent);}
+  input::placeholder{color:var(--muted);}
 
-    .timer-display {
-      font-size: 3.5rem;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      letter-spacing: -1px;
-      color: #16213e;
-      margin-bottom: 1.25rem;
-      text-align: center;
-    }
+  .timer-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 20px;text-align:center;margin-bottom:20px;}
+  .timer-display{font-family:'DM Mono',monospace;font-size:52px;font-weight:500;color:var(--accent);letter-spacing:-1px;margin-bottom:6px;}
+  .timer-display.stopped{color:var(--muted);}
+  .timer-status{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;}
 
-    .task-row {
-      display: flex;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
-    }
+  .track-btn{width:100%;padding:18px;border:none;border-radius:var(--radius);font-family:'Sora',sans-serif;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.2s;}
+  .track-btn.start{background:var(--accent);color:#0e0f14;}
+  .track-btn.stop{background:var(--accent2);color:white;}
+  .track-btn:active{transform:scale(0.97);}
 
-    .task-row input {
-      flex: 1;
-      padding: 0.6rem 0.85rem;
-      border: 1.5px solid #ddd;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.2s;
-    }
+  .manual-toggle{width:100%;background:none;border:1px dashed var(--border);color:var(--muted);border-radius:var(--radius);padding:14px;font-family:'Sora',sans-serif;font-size:14px;cursor:pointer;margin-top:12px;transition:all 0.2s;}
+  .manual-toggle.open{border-color:var(--accent3);color:var(--accent3);}
+  .manual-form{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:10px;display:none;}
+  .manual-form.open{display:block;}
+  .form-row{display:flex;gap:10px;margin-bottom:10px;}
+  .form-row>*{flex:1;}
+  .form-label{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:5px;text-transform:uppercase;letter-spacing:1px;}
+  .btn-save-manual{width:100%;background:var(--accent3);color:white;border:none;border-radius:var(--radius);padding:14px;font-family:'Sora',sans-serif;font-weight:600;font-size:15px;cursor:pointer;margin-top:4px;}
 
-    .task-row input:focus { border-color: #4361ee; }
+  .add-project-form{display:flex;gap:8px;margin-bottom:20px;}
+  .add-project-form input{flex:1;}
+  .btn-add{background:var(--accent);color:#0e0f14;border:none;border-radius:var(--radius);padding:13px 20px;font-family:'Sora',sans-serif;font-weight:600;cursor:pointer;font-size:14px;white-space:nowrap;}
 
-    .btn {
-      padding: 0.6rem 1.25rem;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.15s, transform 0.1s;
-    }
+  .project-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+  .project-name{font-weight:600;font-size:15px;}
+  .project-hours{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);margin-top:3px;}
+  .btn-delete{background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:10px 16px;cursor:pointer;font-size:13px;}
 
-    .btn:active { transform: scale(0.97); }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .filter-row{display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px;}
+  .filter-btn{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:8px 16px;font-size:12px;white-space:nowrap;cursor:pointer;font-family:'Sora',sans-serif;}
+  .filter-btn.active{background:var(--accent);color:#0e0f14;border-color:var(--accent);font-weight:600;}
 
-    .btn-start  { background: #4361ee; color: #fff; }
-    .btn-stop   { background: #e63946; color: #fff; }
-    .btn-clear  { background: #eee; color: #555; font-size: 0.8rem; padding: 0.4rem 0.85rem; }
+  .bulk-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:12px 14px;background:#1a1f2e;border:1px solid var(--accent3);border-radius:var(--radius);}
+  .bulk-count{font-size:13px;color:var(--accent3);font-family:'DM Mono',monospace;flex:1;}
+  .btn-bulk-paid{background:var(--accent);color:#0e0f14;border:none;border-radius:10px;padding:10px 14px;font-family:'Sora',sans-serif;font-weight:600;font-size:12px;cursor:pointer;}
+  .btn-bulk-unpaid{background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:10px;padding:10px 14px;font-family:'Sora',sans-serif;font-weight:600;font-size:12px;cursor:pointer;}
+  .btn-bulk-del{background:none;border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:15px;}
 
-    .controls {
-      display: flex;
-      justify-content: center;
-      gap: 0.75rem;
-    }
+  .log-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;transition:border-color 0.15s;}
+  .log-item.selected{border-color:var(--accent3);}
+  .log-cb{width:24px;height:24px;border-radius:7px;border:2px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all 0.15s;}
+  .log-cb.on{background:var(--accent3);border-color:var(--accent3);}
+  .log-cb.on::after{content:'✓';color:white;font-size:14px;font-weight:700;}
+  .log-info{flex:1;min-width:0;}
+  .log-project{font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .log-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:3px;}
+  .manual-badge{display:inline-block;font-size:9px;font-family:'DM Mono',monospace;color:var(--accent3);border:1px solid var(--accent3);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle;}
+  .log-actions{display:flex;flex-direction:row;gap:6px;flex-shrink:0;align-items:center;}
+  .btn-paid{width:44px;height:44px;border-radius:11px;border:2px solid;cursor:pointer;background:none;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+  .btn-paid.unpaid{border-color:var(--border);color:var(--muted);}
+  .btn-paid.is-paid{border-color:var(--accent);color:#0e0f14;background:var(--accent);}
+  .btn-del-log{width:44px;height:44px;border-radius:11px;border:2px solid var(--border);cursor:pointer;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+  .btn-del-log:active{border-color:var(--accent2);color:var(--accent2);}
+  .log-right{text-align:right;flex-shrink:0;}
+  .log-duration{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;}
+  .log-badge{display:inline-block;font-size:10px;font-family:'DM Mono',monospace;border-radius:6px;padding:3px 7px;margin-top:5px;}
+  .log-badge.paid{color:var(--accent);background:#5eff9e15;}
+  .log-badge.unpaid{color:var(--accent2);background:#ff6b6b15;}
 
-    .summary {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.75rem;
-    }
+  .stats-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:12px;}
+  .stats-card-title{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:8px;}
+  .stats-big{font-family:'DM Mono',monospace;font-size:36px;font-weight:500;color:var(--accent);}
+  .stats-label{font-size:12px;color:var(--muted);margin-top:4px;}
+  .stats-row{display:flex;gap:12px;margin-bottom:12px;}
+  .stats-row .stats-card{flex:1;margin-bottom:0;}
+  .project-stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:8px;}
+  .ps-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .ps-name{font-weight:600;font-size:14px;}
+  .ps-total{font-family:'DM Mono',monospace;font-size:14px;color:var(--accent3);}
+  .ps-bar-bg{background:var(--border);border-radius:4px;height:4px;}
+  .ps-bar{height:4px;border-radius:4px;transition:width 0.5s;}
+  .ps-paid-row{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px;font-family:'DM Mono',monospace;}
+  .ps-paid-val{color:var(--accent);}
+  .ps-unpaid-val{color:var(--accent2);}
 
-    .summary span { font-size: 0.9rem; color: #666; }
-    .summary strong { color: #16213e; }
+  /* SETTINGS */
+  .setting-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+  .setting-card h3{font-size:15px;font-weight:600;margin-bottom:6px;}
+  .setting-card p{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px;}
+  .setting-card p strong{color:var(--text);}
+  .btn-primary{width:100%;background:var(--accent);color:#0e0f14;border:none;border-radius:var(--radius);padding:15px;font-family:'Sora',sans-serif;font-weight:700;font-size:15px;cursor:pointer;margin-top:4px;transition:opacity 0.2s;}
+  .btn-primary:disabled{opacity:0.4;cursor:not-allowed;}
+  .btn-secondary{width:100%;background:none;border:2px solid var(--accent3);color:var(--accent3);border-radius:var(--radius);padding:14px;font-family:'Sora',sans-serif;font-weight:600;font-size:15px;cursor:pointer;margin-top:8px;}
+  .btn-outline{width:100%;background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius);padding:13px;font-family:'Sora',sans-serif;font-size:14px;cursor:pointer;margin-top:8px;}
+  .status-row{display:flex;align-items:center;gap:8px;padding:10px 0;font-size:12px;font-family:'DM Mono',monospace;color:var(--muted);}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+  .status-dot.green{background:var(--accent);}
+  .status-dot.blue{background:var(--accent3);animation:blink 1s infinite;}
+  .status-dot.red{background:var(--accent2);}
+  .input-row{display:flex;gap:8px;}
+  .input-row input{flex:1;}
+  .btn-sm{background:var(--accent3);color:white;border:none;border-radius:var(--radius);padding:13px 16px;font-family:'Sora',sans-serif;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;}
+  .divider{height:1px;background:var(--border);margin:16px 0;}
+  .two-col{display:flex;gap:10px;}
+  .two-col>*{flex:1;}
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-    }
-
-    thead th {
-      text-align: left;
-      padding: 0.5rem 0.6rem;
-      color: #888;
-      font-weight: 600;
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      border-bottom: 1.5px solid #eee;
-    }
-
-    tbody tr { border-bottom: 1px solid #f4f4f4; }
-    tbody tr:last-child { border-bottom: none; }
-
-    tbody td {
-      padding: 0.6rem 0.6rem;
-      color: #333;
-    }
-
-    .empty-state {
-      text-align: center;
-      color: #aaa;
-      padding: 1.5rem 0;
-      font-size: 0.9rem;
-    }
-
-    .tag-task { color: #4361ee; font-weight: 500; }
-  </style>
+  .empty-state{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;}
+  .empty-icon{font-size:40px;margin-bottom:12px;}
+  .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--accent);color:#0e0f14;padding:10px 20px;border-radius:100px;font-size:13px;font-weight:600;opacity:0;transition:all 0.3s;pointer-events:none;z-index:200;white-space:nowrap;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
 </head>
 <body>
 
 <header>
-  <h1>TimeLog</h1>
-  <p>Track time for your tasks, simply.</p>
+  <div class="header-top">
+    <h1>Time<span>Log</span></h1>
+    <div class="sync-pill" id="syncPill" onclick="showPage('settings',document.querySelectorAll('.nav button')[4])">
+      <div class="sync-dot"></div>
+      <span id="syncLabel">local</span>
+    </div>
+  </div>
+  <div class="header-sub" id="headerDate"></div>
 </header>
 
-<!-- Timer card -->
-<div class="card">
-  <h2>Timer</h2>
-  <div class="timer-display" id="timer">00:00:00</div>
-  <div class="task-row">
-    <input type="text" id="taskInput" placeholder="Task name (optional)" maxlength="80" />
+<!-- TIMER -->
+<div id="page-track" class="page active">
+  <div class="section-title">Active Project</div>
+  <div class="project-select-wrap">
+    <select id="trackProjectSelect"><option value="">— Choose a project —</option></select>
+    <span class="select-arrow">▾</span>
   </div>
-  <div class="controls">
-    <button class="btn btn-start" id="startBtn" onclick="startTimer()">Start</button>
-    <button class="btn btn-stop"  id="stopBtn"  onclick="stopTimer()" disabled>Stop &amp; Log</button>
+  <div class="timer-card">
+    <div class="timer-display stopped" id="timerDisplay">00:00:00</div>
+    <div class="timer-status" id="timerStatus">idle</div>
+  </div>
+  <button class="track-btn start" id="trackBtn" onclick="toggleTracking()">▶ Start Tracking</button>
+  <button class="manual-toggle" id="manualToggleBtn" onclick="toggleManualForm()">+ Add Time Manually</button>
+  <div class="manual-form" id="manualForm">
+    <div class="section-title" style="margin-bottom:14px">Manual Entry</div>
+    <div class="form-label">Project</div>
+    <div class="project-select-wrap" style="margin-bottom:12px">
+      <select id="manualProject"><option value="">— Choose a project —</option></select>
+      <span class="select-arrow">▾</span>
+    </div>
+    <div class="form-row">
+      <div><div class="form-label">Date</div><input type="date" id="manualDate"></div>
+      <div><div class="form-label">Start Time</div><input type="time" id="manualStart"></div>
+    </div>
+    <div class="form-label">Duration</div>
+    <div class="form-row" style="margin-bottom:14px">
+      <div><input type="number" id="manualHours" placeholder="Hours" min="0" max="99"></div>
+      <div><input type="number" id="manualMinutes" placeholder="Minutes" min="0" max="59"></div>
+    </div>
+    <button class="btn-save-manual" onclick="saveManualEntry()">💾 Save Manual Entry</button>
   </div>
 </div>
 
-<!-- Log card -->
-<div class="card">
-  <h2>Log</h2>
-  <div class="summary">
-    <span>Today's total: <strong id="totalDisplay">0h 00m</strong></span>
-    <button class="btn btn-clear" onclick="clearLog()">Clear log</button>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Task</th>
-        <th>Started</th>
-        <th>Duration</th>
-      </tr>
-    </thead>
-    <tbody id="logBody">
-      <tr><td colspan="4" class="empty-state">No entries yet. Start the timer!</td></tr>
-    </tbody>
-  </table>
+<!-- LOGS -->
+<div id="page-logs" class="page">
+  <div class="filter-row" id="logFilterRow"></div>
+  <div id="bulkBar"></div>
+  <div id="logsList"></div>
 </div>
+
+<!-- PROJECTS -->
+<div id="page-projects" class="page">
+  <div class="section-title">Add New Project</div>
+  <div class="add-project-form">
+    <input type="text" id="newProjectName" placeholder="Project name..." maxlength="40">
+    <button class="btn-add" onclick="addProject()">Add</button>
+  </div>
+  <div class="section-title">Your Projects</div>
+  <div id="projectsList"></div>
+</div>
+
+<!-- STATS -->
+<div id="page-stats" class="page">
+  <div id="statsContent"></div>
+</div>
+
+<!-- SETTINGS -->
+<div id="page-settings" class="page">
+
+  <div class="setting-card" id="driveSetupCard">
+    <h3>☁️ Google Drive Sync</h3>
+    <div class="status-row">
+      <div class="status-dot" id="driveDot"></div>
+      <span id="driveStatusText">Not connected</span>
+    </div>
+    <div class="divider"></div>
+
+    <div id="setupSection">
+      <p>Paste your <strong>Google OAuth Client ID</strong> below. Your data will auto-save to <strong>timelog-backup.json</strong> in your Drive after every change.</p>
+      <div class="form-label">Client ID</div>
+      <div class="input-row" style="margin-bottom:10px">
+        <input type="text" id="clientIdInput" placeholder="xxxx.apps.googleusercontent.com">
+        <button class="btn-sm" onclick="saveClientId()">Save</button>
+      </div>
+      <button class="btn-primary" id="btnSignIn" onclick="signInWithGoogle()" disabled>
+        Sign in with Google
+      </button>
+    </div>
+
+    <div id="connectedSection" style="display:none">
+      <p>Signed in as <strong id="driveUserEmail"></strong>. Data auto-saves to your Drive.</p>
+      <button class="btn-secondary" onclick="forceSave()">☁️ Save Now</button>
+      <button class="btn-secondary" style="margin-top:8px;border-color:var(--accent3)" onclick="forceLoad()">⬇️ Load from Drive</button>
+      <button class="btn-outline" onclick="signOut()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="setting-card">
+    <h3>📦 Local Backup</h3>
+    <p>Export your data as a JSON file to your phone, or restore from a previous export.</p>
+    <div class="two-col">
+      <button class="btn-secondary" style="margin:0" onclick="exportJSON()">📤 Export</button>
+      <label style="flex:1">
+        <div class="btn-secondary" style="margin:0;text-align:center;cursor:pointer">📥 Import</div>
+        <input type="file" accept=".json" style="display:none" onchange="importJSON(event)">
+      </label>
+    </div>
+  </div>
+
+</div>
+
+<nav class="nav">
+  <button class="active" onclick="showPage('track',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>Timer
+  </button>
+  <button onclick="showPage('logs',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Logs
+  </button>
+  <button onclick="showPage('projects',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Projects
+  </button>
+  <button onclick="showPage('stats',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Stats
+  </button>
+  <button onclick="showPage('settings',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Sync
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async></script>
 
 <script>
-  const STORAGE_KEY = 'timelog_entries';
+// ── STATE ──────────────────────────────────────────────────────────
+let state = JSON.parse(localStorage.getItem('timelog_state')||'null') || {projects:[],logs:[],tracking:null};
+let timerInterval = null;
+let selectedLogs = new Set();
+let logFilter = 'all';
 
-  let timerInterval = null;
-  let startTime = null;
+let gClientId    = localStorage.getItem('tl_client_id') || '';
+let gAccessToken = localStorage.getItem('tl_access_token') || '';
+let gTokenExpiry = parseInt(localStorage.getItem('tl_token_expiry')||'0');
+let gFileId      = localStorage.getItem('tl_file_id') || '';
+let gUserEmail   = localStorage.getItem('tl_user_email') || '';
+let syncTimer    = null;
 
-  // ── helpers ──────────────────────────────────────────────────────────────
-  function pad(n) { return String(n).padStart(2, '0'); }
+// ── HELPERS ────────────────────────────────────────────────────────
+const fmtDur = ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60;return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;};
+const fmtH   = ms=>(ms/3600000).toFixed(1)+'h';
+const fmtDt  = ts=>{const d=new Date(ts);return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});};
+const uid    = ()=>Date.now()+Math.random().toString(36).slice(2,7);
 
-  function formatElapsed(ms) {
-    const s = Math.floor(ms / 1000);
-    return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
-  }
+function showToast(msg,color){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.background=color||'var(--accent)';t.style.color=color?'white':'#0e0f14';
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);
+}
 
-  function formatDuration(ms) {
-    const totalMin = Math.floor(ms / 60000);
-    const h = Math.floor(totalMin / 60);
-    const m = totalMin % 60;
-    const s = Math.floor((ms % 60000) / 1000);
-    if (h > 0) return `${h}h ${pad(m)}m ${pad(s)}s`;
-    if (m > 0) return `${m}m ${pad(s)}s`;
-    return `${s}s`;
-  }
+// ── LOCAL SAVE + SCHEDULE DRIVE SYNC ──────────────────────────────
+function save(){
+  localStorage.setItem('timelog_state',JSON.stringify(state));
+  if(isSignedIn()) scheduleDriveSync();
+}
 
-  function formatTotal(ms) {
-    const totalMin = Math.floor(ms / 60000);
-    return `${Math.floor(totalMin / 60)}h ${pad(totalMin % 60)}m`;
-  }
+function scheduleDriveSync(){
+  clearTimeout(syncTimer);
+  setSyncPill('syncing','pending…');
+  syncTimer = setTimeout(()=>driveUpload(true), 3000);
+}
 
-  function formatTime(ts) {
-    const d = new Date(ts);
-    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
+// ── SYNC PILL ─────────────────────────────────────────────────────
+function setSyncPill(cls, label){
+  const pill=document.getElementById('syncPill');
+  const lbl=document.getElementById('syncLabel');
+  pill.className='sync-pill'+(cls?' '+cls:'');
+  lbl.textContent=label;
+}
 
-  // ── storage ───────────────────────────────────────────────────────────────
-  function loadEntries() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-    catch { return []; }
-  }
+// ── GOOGLE OAUTH ──────────────────────────────────────────────────
+function isSignedIn(){
+  return gAccessToken && Date.now() < gTokenExpiry;
+}
 
-  function saveEntries(entries) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-  }
+function saveClientId(){
+  const val=document.getElementById('clientIdInput').value.trim();
+  if(!val){showToast('Paste your Client ID first','#ff6b6b');return;}
+  gClientId=val;
+  localStorage.setItem('tl_client_id',gClientId);
+  document.getElementById('btnSignIn').disabled=false;
+  showToast('Client ID saved — tap Sign in!');
+}
 
-  // ── timer ─────────────────────────────────────────────────────────────────
-  function startTimer() {
-    startTime = Date.now();
-    document.getElementById('startBtn').disabled = true;
-    document.getElementById('stopBtn').disabled  = false;
-    document.getElementById('taskInput').disabled = true;
-
-    timerInterval = setInterval(() => {
-      document.getElementById('timer').textContent =
-        formatElapsed(Date.now() - startTime);
-    }, 500);
-  }
-
-  function stopTimer() {
-    if (!startTime) return;
-    clearInterval(timerInterval);
-    timerInterval = null;
-
-    const duration = Date.now() - startTime;
-    const task = document.getElementById('taskInput').value.trim() || 'Untitled task';
-
-    const entries = loadEntries();
-    entries.unshift({ task, start: startTime, duration });
-    saveEntries(entries);
-
-    // reset UI
-    document.getElementById('timer').textContent = '00:00:00';
-    document.getElementById('startBtn').disabled = false;
-    document.getElementById('stopBtn').disabled  = true;
-    document.getElementById('taskInput').disabled = false;
-    document.getElementById('taskInput').value = '';
-    startTime = null;
-
-    renderLog();
-  }
-
-  // ── log rendering ─────────────────────────────────────────────────────────
-  function renderLog() {
-    const entries = loadEntries();
-    const tbody = document.getElementById('logBody');
-
-    if (entries.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No entries yet. Start the timer!</td></tr>';
-      document.getElementById('totalDisplay').textContent = '0h 00m';
-      return;
+function signInWithGoogle(){
+  if(!gClientId){showToast('Save your Client ID first','#ff6b6b');return;}
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: gClientId,
+    scope: 'https://www.googleapis.com/auth/drive.file email profile',
+    callback: async (resp) => {
+      if(resp.error){showToast('Sign-in failed: '+resp.error,'#ff6b6b');return;}
+      gAccessToken = resp.access_token;
+      gTokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
+      localStorage.setItem('tl_access_token', gAccessToken);
+      localStorage.setItem('tl_token_expiry', String(gTokenExpiry));
+      // fetch user email
+      try{
+        const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+gAccessToken}});
+        const u = await r.json();
+        gUserEmail = u.email||'';
+        localStorage.setItem('tl_user_email', gUserEmail);
+      }catch(e){}
+      updateDriveUI();
+      showToast('Signed in! Saving to Drive…');
+      await driveUpload(false);
     }
+  });
+  client.requestAccessToken();
+}
 
-    const today = new Date().toDateString();
-    let totalMs = 0;
+function signOut(){
+  gAccessToken='';gTokenExpiry=0;gFileId='';gUserEmail='';
+  localStorage.removeItem('tl_access_token');localStorage.removeItem('tl_token_expiry');
+  localStorage.removeItem('tl_file_id');localStorage.removeItem('tl_user_email');
+  updateDriveUI();setSyncPill('','local');showToast('Signed out');
+}
 
-    tbody.innerHTML = entries.map((e, i) => {
-      if (new Date(e.start).toDateString() === today) totalMs += e.duration;
-      return `<tr>
-        <td>${entries.length - i}</td>
-        <td class="tag-task">${escHtml(e.task)}</td>
-        <td>${formatTime(e.start)}</td>
-        <td>${formatDuration(e.duration)}</td>
-      </tr>`;
-    }).join('');
-
-    document.getElementById('totalDisplay').textContent = formatTotal(totalMs);
+function updateDriveUI(){
+  const setup=document.getElementById('setupSection');
+  const conn=document.getElementById('connectedSection');
+  const dot=document.getElementById('driveDot');
+  const txt=document.getElementById('driveStatusText');
+  if(isSignedIn()){
+    setup.style.display='none';conn.style.display='block';
+    document.getElementById('driveUserEmail').textContent=gUserEmail;
+    dot.className='status-dot green';txt.textContent='Connected — auto-saving';
+    setSyncPill('synced','synced');
+  } else {
+    setup.style.display='block';conn.style.display='none';
+    if(gClientId) document.getElementById('clientIdInput').placeholder='ID saved — tap Sign in';
+    document.getElementById('btnSignIn').disabled=!gClientId;
+    dot.className='status-dot';txt.textContent='Not connected';
+    setSyncPill('','local');
   }
+}
 
-  function clearLog() {
-    if (!confirm('Clear all log entries?')) return;
-    localStorage.removeItem(STORAGE_KEY);
-    renderLog();
+// ── DRIVE API CALLS ───────────────────────────────────────────────
+async function driveRequest(url, method, body, contentType){
+  const headers = {Authorization:'Bearer '+gAccessToken};
+  if(contentType) headers['Content-Type']=contentType;
+  const r = await fetch(url,{method:method||'GET',headers,body});
+  if(r.status===401){signOut();throw new Error('Token expired — please sign in again');}
+  return r;
+}
+
+async function driveUpload(silent=false){
+  if(!isSignedIn()) return;
+  setSyncPill('syncing','saving…');
+  const content = JSON.stringify(state, null, 2);
+  try{
+    if(gFileId){
+      // update existing file
+      await driveRequest(
+        `https://www.googleapis.com/upload/drive/v3/files/${gFileId}?uploadType=media`,
+        'PATCH', content, 'application/json'
+      );
+    } else {
+      // find or create
+      const search = await driveRequest(
+        `https://www.googleapis.com/drive/v3/files?q=name%3D'timelog-backup.json'+and+trashed%3Dfalse&fields=files(id)`,
+        'GET'
+      );
+      const sData = await search.json();
+      if(sData.files && sData.files.length > 0){
+        gFileId = sData.files[0].id;
+        localStorage.setItem('tl_file_id', gFileId);
+        await driveRequest(
+          `https://www.googleapis.com/upload/drive/v3/files/${gFileId}?uploadType=media`,
+          'PATCH', content, 'application/json'
+        );
+      } else {
+        // create new file (multipart)
+        const boundary = 'tl_boundary_xyz';
+        const meta = JSON.stringify({name:'timelog-backup.json',mimeType:'application/json'});
+        const multipart = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
+        const cr = await driveRequest(
+          'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+          'POST', multipart, `multipart/related; boundary=${boundary}`
+        );
+        const cData = await cr.json();
+        gFileId = cData.id;
+        localStorage.setItem('tl_file_id', gFileId);
+      }
+    }
+    setSyncPill('synced','synced');
+    if(!silent) showToast('Saved to Google Drive ✓');
+  } catch(e){
+    setSyncPill('error','error');
+    if(!silent) showToast('Drive error: '+e.message,'#ff6b6b');
   }
+}
 
-  function escHtml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+async function driveDownload(){
+  if(!isSignedIn()){showToast('Sign in first','#ff6b6b');return;}
+  setSyncPill('syncing','loading…');
+  try{
+    let fileId = gFileId;
+    if(!fileId){
+      const search = await driveRequest(
+        `https://www.googleapis.com/drive/v3/files?q=name%3D'timelog-backup.json'+and+trashed%3Dfalse&fields=files(id)`,
+        'GET'
+      );
+      const sData = await search.json();
+      if(!sData.files||!sData.files.length){showToast('No backup found on Drive','#ff6b6b');setSyncPill('synced','synced');return;}
+      fileId = sData.files[0].id;
+      gFileId=fileId;localStorage.setItem('tl_file_id',fileId);
+    }
+    const r = await driveRequest(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,'GET');
+    const parsed = await r.json();
+    if(!parsed.projects||!parsed.logs) throw new Error('Invalid backup format');
+    state=parsed;
+    localStorage.setItem('timelog_state',JSON.stringify(state));
+    renderTrackSelects();
+    if(state.tracking){updateTimerUI();startTimerTick();}
+    setSyncPill('synced','synced');
+    showToast('Loaded from Google Drive ✓');
+  } catch(e){
+    setSyncPill('error','error');
+    showToast('Load error: '+e.message,'#ff6b6b');
   }
+}
 
-  // init
-  renderLog();
+async function forceSave(){ await driveUpload(false); }
+async function forceLoad(){ await driveDownload(); }
+
+// ── EXPORT / IMPORT ───────────────────────────────────────────────
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='timelog-backup.json';a.click();showToast('Exported!');
+}
+function importJSON(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const p=JSON.parse(ev.target.result);
+      if(!p.projects||!p.logs)throw new Error();
+      state=p;save();renderTrackSelects();showToast('Imported ✓');
+    }catch{showToast('Invalid file','#ff6b6b');}
+  };
+  r.readAsText(file);
+}
+
+// ── PAGES ─────────────────────────────────────────────────────────
+function showPage(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='logs'){selectedLogs.clear();renderLogs();}
+  if(name==='projects')renderProjects();
+  if(name==='stats')renderStats();
+  if(name==='settings')updateDriveUI();
+}
+
+// ── PROJECTS ──────────────────────────────────────────────────────
+function addProject(){
+  const inp=document.getElementById('newProjectName');
+  const name=inp.value.trim();if(!name)return;
+  if(state.projects.find(p=>p.name.toLowerCase()===name.toLowerCase())){showToast('Already exists','#ff6b6b');return;}
+  state.projects.push({id:uid(),name,color:randomColor()});
+  save();inp.value='';renderProjects();renderTrackSelects();showToast('Project added!');
+}
+function deleteProject(id){
+  if(state.tracking&&state.tracking.projectId===id){showToast("Can't delete active project",'#ff6b6b');return;}
+  state.projects=state.projects.filter(p=>p.id!==id);
+  state.logs=state.logs.filter(l=>l.projectId!==id);
+  save();renderProjects();renderTrackSelects();
+}
+const COLORS=['#5eff9e','#6b9fff','#ff6b6b','#ffd166','#c77dff','#ff9f43','#48cae4'];
+let colorIdx=0;
+function randomColor(){return COLORS[colorIdx++%COLORS.length];}
+
+function renderProjects(){
+  const el=document.getElementById('projectsList');
+  if(!state.projects.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📁</div>No projects yet.</div>';return;}
+  el.innerHTML=state.projects.map(p=>{
+    const ms=state.logs.filter(l=>l.projectId===p.id).reduce((a,l)=>a+l.duration,0);
+    return `<div class="project-card"><div><div class="project-name" style="color:${p.color}">${p.name}</div><div class="project-hours">${fmtH(ms)} total</div></div><button class="btn-delete" onclick="deleteProject('${p.id}')">Delete</button></div>`;
+  }).join('');
+}
+function renderTrackSelects(){
+  ['trackProjectSelect','manualProject'].forEach(id=>{
+    const sel=document.getElementById(id),cur=sel.value;
+    sel.innerHTML='<option value="">— Choose a project —</option>'+
+      state.projects.map(p=>`<option value="${p.id}"${p.id===cur?' selected':''}>${p.name}</option>`).join('');
+  });
+}
+
+// ── TIMER ─────────────────────────────────────────────────────────
+function toggleTracking(){if(state.tracking)stopTracking();else startTracking();}
+function startTracking(){
+  const pid=document.getElementById('trackProjectSelect').value;
+  if(!pid){showToast('Choose a project first!','#ff6b6b');return;}
+  state.tracking={projectId:pid,startTime:Date.now()};
+  save();updateTimerUI();startTimerTick();
+}
+function stopTracking(){
+  if(!state.tracking)return;
+  const duration=Date.now()-state.tracking.startTime;
+  const project=state.projects.find(p=>p.id===state.tracking.projectId);
+  state.logs.unshift({id:uid(),projectId:state.tracking.projectId,projectName:project?project.name:'Unknown',startTime:state.tracking.startTime,endTime:Date.now(),duration,paid:false,manual:false});
+  state.tracking=null;save();clearInterval(timerInterval);updateTimerUI();
+  showToast('Session saved! '+fmtH(duration));
+}
+function startTimerTick(){clearInterval(timerInterval);timerInterval=setInterval(tickTimer,1000);tickTimer();}
+function tickTimer(){if(!state.tracking)return;document.getElementById('timerDisplay').textContent=fmtDur(Date.now()-state.tracking.startTime);}
+function updateTimerUI(){
+  const btn=document.getElementById('trackBtn'),disp=document.getElementById('timerDisplay'),status=document.getElementById('timerStatus');
+  if(state.tracking){
+    const p=state.projects.find(p=>p.id===state.tracking.projectId);
+    btn.textContent='⏹ Stop Tracking';btn.className='track-btn stop';
+    disp.className='timer-display';status.textContent='tracking: '+(p?p.name:'');
+    document.getElementById('trackProjectSelect').value=state.tracking.projectId;
+  }else{
+    btn.textContent='▶ Start Tracking';btn.className='track-btn start';
+    disp.textContent='00:00:00';disp.className='timer-display stopped';status.textContent='idle';
+  }
+}
+
+// ── MANUAL ────────────────────────────────────────────────────────
+function toggleManualForm(){
+  const form=document.getElementById('manualForm'),btn=document.getElementById('manualToggleBtn');
+  const isOpen=form.classList.contains('open');
+  form.classList.toggle('open');btn.classList.toggle('open');
+  btn.textContent=isOpen?'+ Add Time Manually':'− Close Manual Entry';
+  if(!isOpen){
+    const now=new Date();
+    document.getElementById('manualDate').value=now.toISOString().split('T')[0];
+    document.getElementById('manualStart').value=now.toTimeString().slice(0,5);
+    document.getElementById('manualHours').value='';document.getElementById('manualMinutes').value='';
+  }
+}
+function saveManualEntry(){
+  const pid=document.getElementById('manualProject').value;
+  const dateVal=document.getElementById('manualDate').value;
+  const startVal=document.getElementById('manualStart').value;
+  const hours=parseInt(document.getElementById('manualHours').value)||0;
+  const minutes=parseInt(document.getElementById('manualMinutes').value)||0;
+  if(!pid){showToast('Choose a project','#ff6b6b');return;}
+  if(!dateVal){showToast('Choose a date','#ff6b6b');return;}
+  if(hours===0&&minutes===0){showToast('Enter a duration','#ff6b6b');return;}
+  const startTime=new Date(dateVal+'T'+(startVal||'00:00')).getTime();
+  const duration=(hours*60+minutes)*60000;
+  const project=state.projects.find(p=>p.id===pid);
+  state.logs.unshift({id:uid(),projectId:pid,projectName:project?project.name:'Unknown',startTime,endTime:startTime+duration,duration,paid:false,manual:true});
+  state.logs.sort((a,b)=>b.startTime-a.startTime);
+  save();toggleManualForm();showToast('Manual entry saved!');
+}
+
+// ── LOGS ──────────────────────────────────────────────────────────
+function renderLogs(){
+  const projects=[...new Set(state.logs.map(l=>l.projectId))].map(id=>state.projects.find(p=>p.id===id)).filter(Boolean);
+  document.getElementById('logFilterRow').innerHTML=
+    `<button class="filter-btn ${logFilter==='all'?'active':''}" onclick="setLogFilter('all')">All</button>
+     <button class="filter-btn ${logFilter==='unpaid'?'active':''}" onclick="setLogFilter('unpaid')">Unpaid</button>
+     <button class="filter-btn ${logFilter==='paid'?'active':''}" onclick="setLogFilter('paid')">Paid</button>`+
+    projects.map(p=>`<button class="filter-btn ${logFilter===p.id?'active':''}" onclick="setLogFilter('${p.id}')" style="${logFilter===p.id?'':'color:'+p.color}">${p.name}</button>`).join('');
+
+  let logs=[...state.logs];
+  if(logFilter==='paid')logs=logs.filter(l=>l.paid);
+  else if(logFilter==='unpaid')logs=logs.filter(l=>!l.paid);
+  else if(logFilter!=='all')logs=logs.filter(l=>l.projectId===logFilter);
+
+  document.getElementById('bulkBar').innerHTML=selectedLogs.size>0?`<div class="bulk-bar">
+    <div class="bulk-count">${selectedLogs.size} selected</div>
+    <button class="btn-bulk-paid" onclick="bulkSetPaid(true)">✓ Paid</button>
+    <button class="btn-bulk-unpaid" onclick="bulkSetPaid(false)">Unpaid</button>
+    <button class="btn-bulk-del" onclick="bulkDelete()">🗑</button>
+  </div>`:'';
+
+  const el=document.getElementById('logsList');
+  if(!logs.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div>No logs found.</div>';return;}
+
+  el.innerHTML=logs.map(l=>{
+    const p=state.projects.find(pr=>pr.id===l.projectId);
+    const color=p?p.color:'#6b7087';
+    const isSel=selectedLogs.has(l.id);
+    const paidIcon=l.paid
+      ?`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><polyline points="20 6 9 17 4 12"/></svg>`
+      :`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="6" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="18"/><path d="M9.5 9.5a2.5 2.5 0 0 1 5 0c0 1.5-1.5 2-2.5 2.5S9.5 13 9.5 14.5a2.5 2.5 0 0 0 5 0"/></svg>`;
+    const trashIcon=`<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+    return `<div class="log-item${isSel?' selected':''}">
+      <div class="log-cb${isSel?' on':''}" onclick="toggleSelect('${l.id}')"></div>
+      <div class="log-info">
+        <div class="log-project" style="color:${color}">${l.projectName}${l.manual?'<span class="manual-badge">manual</span>':''}</div>
+        <div class="log-date">${fmtDt(l.startTime)}</div>
+      </div>
+      <div class="log-actions">
+        <button class="btn-paid ${l.paid?'is-paid':'unpaid'}" onclick="togglePaid('${l.id}')">${paidIcon}</button>
+        <button class="btn-del-log" onclick="deleteLog('${l.id}')">${trashIcon}</button>
+      </div>
+      <div class="log-right">
+        <div class="log-duration">${fmtDur(l.duration)}</div>
+        <div class="log-badge ${l.paid?'paid':'unpaid'}">${l.paid?'PAID':'UNPAID'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setLogFilter(f){logFilter=f;selectedLogs.clear();renderLogs();}
+function toggleSelect(id){if(selectedLogs.has(id))selectedLogs.delete(id);else selectedLogs.add(id);renderLogs();}
+function bulkSetPaid(paid){
+  const count=selectedLogs.size;
+  selectedLogs.forEach(id=>{const l=state.logs.find(l=>l.id===id);if(l)l.paid=paid;});
+  save();selectedLogs.clear();showToast(`${count} marked as ${paid?'paid ✓':'unpaid'}`);renderLogs();
+}
+function bulkDelete(){
+  const count=selectedLogs.size;
+  state.logs=state.logs.filter(l=>!selectedLogs.has(l.id));
+  save();selectedLogs.clear();showToast(`${count} deleted`,'#ff6b6b');renderLogs();
+}
+function togglePaid(id){const l=state.logs.find(l=>l.id===id);if(l){l.paid=!l.paid;save();renderLogs();showToast(l.paid?'Marked as paid ✓':'Marked as unpaid');}}
+function deleteLog(id){state.logs=state.logs.filter(l=>l.id!==id);save();renderLogs();}
+
+// ── STATS ─────────────────────────────────────────────────────────
+function renderStats(){
+  const total=state.logs.reduce((a,l)=>a+l.duration,0);
+  const paid=state.logs.filter(l=>l.paid).reduce((a,l)=>a+l.duration,0);
+  const byProject={};
+  state.logs.forEach(l=>{
+    if(!byProject[l.projectId])byProject[l.projectId]={name:l.projectName,total:0,paid:0};
+    byProject[l.projectId].total+=l.duration;if(l.paid)byProject[l.projectId].paid+=l.duration;
+  });
+  const ps=Object.entries(byProject).sort((a,b)=>b[1].total-a[1].total);
+  const maxMs=ps[0]?.[1].total||1;
+  document.getElementById('statsContent').innerHTML=`
+    <div class="stats-row">
+      <div class="stats-card"><div class="stats-card-title">Total Logged</div><div class="stats-big">${fmtH(total)}</div><div class="stats-label">${state.logs.length} sessions</div></div>
+      <div class="stats-card"><div class="stats-card-title">Total Paid</div><div class="stats-big" style="color:var(--accent)">${fmtH(paid)}</div><div class="stats-label" style="color:var(--accent2)">${fmtH(total-paid)} unpaid</div></div>
+    </div>
+    <div class="section-title">By Project</div>
+    ${ps.length?ps.map(([id,s])=>{
+      const pct=(s.total/maxMs*100).toFixed(0);
+      const p=state.projects.find(pr=>pr.id===id);const color=p?p.color:'#6b9fff';
+      return `<div class="project-stat">
+        <div class="ps-header"><div class="ps-name" style="color:${color}">${s.name}</div><div class="ps-total">${fmtH(s.total)}</div></div>
+        <div class="ps-bar-bg"><div class="ps-bar" style="width:${pct}%;background:${color}"></div></div>
+        <div class="ps-paid-row"><span>Paid: <span class="ps-paid-val">${fmtH(s.paid)}</span></span><span>Unpaid: <span class="ps-unpaid-val">${fmtH(s.total-s.paid)}</span></span></div>
+      </div>`;
+    }).join(''):'<div class="empty-state"><div class="empty-icon">📊</div>No data yet.</div>'}`;
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+function init(){
+  document.getElementById('headerDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  renderTrackSelects();
+  if(state.tracking){updateTimerUI();startTimerTick();}
+  document.getElementById('newProjectName').addEventListener('keydown',e=>{if(e.key==='Enter')addProject();});
+  updateDriveUI();
+}
+init();
 </script>
 </body>
 </html>
