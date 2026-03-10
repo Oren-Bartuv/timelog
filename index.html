@@ -109,7 +109,16 @@
   .log-badge{display:inline-block;font-size:10px;font-family:'DM Mono',monospace;border-radius:6px;padding:3px 7px;margin-top:5px;}
   .log-badge.paid{color:var(--accent);background:#5eff9e15;}
   .log-badge.unpaid{color:var(--accent2);background:#ff6b6b15;}
-  .log-notes{font-size:12px;color:var(--muted);margin-top:4px;white-space:pre-wrap;word-break:break-word;line-height:1.4;}
+  .log-notes{font-size:12px;color:var(--muted);margin-top:4px;white-space:pre-wrap;word-break:break-word;line-height:1.4;cursor:pointer;}
+  .log-notes:hover{color:var(--text);}
+  .btn-add-note{background:none;border:none;color:var(--border);font-size:11px;font-family:'DM Mono',monospace;cursor:pointer;padding:4px 0 0;display:block;}
+  .btn-add-note:hover{color:var(--muted);}
+  .note-edit-wrap{margin-top:6px;display:flex;flex-direction:column;gap:5px;}
+  .note-edit-wrap textarea{width:100%;background:var(--bg);border:1px solid var(--accent3);color:var(--text);font-family:'Sora',sans-serif;font-size:13px;padding:8px 10px;border-radius:10px;resize:vertical;color-scheme:dark;}
+  .note-edit-wrap textarea:focus{outline:none;}
+  .note-edit-actions{display:flex;gap:6px;}
+  .btn-note-save{background:var(--accent3);color:white;border:none;border-radius:8px;padding:7px 14px;font-family:'Sora',sans-serif;font-size:12px;font-weight:600;cursor:pointer;}
+  .btn-note-cancel{background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 14px;font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;}
 
   .stats-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:12px;}
   .stats-card-title{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:8px;}
@@ -665,7 +674,9 @@ function renderLogs(){
       <div class="log-info">
         <div class="log-project" style="color:${color}">${l.projectName}${l.manual?'<span class="manual-badge">manual</span>':''}</div>
         <div class="log-date">${fmtDt(l.startTime)}</div>
-        ${l.notes?`<div class="log-notes">${l.notes}</div>`:''}
+        ${l.notes
+          ?`<div class="log-notes" onclick="editNote('${l.id}',this)" title="Tap to edit">${l.notes}</div>`
+          :`<button class="btn-add-note" onclick="editNote('${l.id}',this)">+ add note</button>`}
       </div>
       <div class="log-actions">
         <button class="btn-paid ${l.paid?'is-paid':'unpaid'}" onclick="togglePaid('${l.id}')">${paidIcon}</button>
@@ -694,6 +705,18 @@ function bulkDelete(){
 }
 function togglePaid(id){const l=state.logs.find(l=>l.id===id);if(l){l.paid=!l.paid;save();renderLogs();showToast(l.paid?'Marked as paid ✓':'Marked as unpaid');}}
 function deleteLog(id){if(!confirm('Delete this log entry?'))return;state.logs=state.logs.filter(l=>l.id!==id);save();renderLogs();}
+function editNote(id, triggerEl){
+  const l=state.logs.find(l=>l.id===id);if(!l)return;
+  const wrap=document.createElement('div');wrap.className='note-edit-wrap';
+  const ta=document.createElement('textarea');ta.rows=2;ta.value=l.notes||'';ta.placeholder='What did you work on?';
+  const actions=document.createElement('div');actions.className='note-edit-actions';
+  const btnSave=document.createElement('button');btnSave.className='btn-note-save';btnSave.textContent='Save';
+  const btnCancel=document.createElement('button');btnCancel.className='btn-note-cancel';btnCancel.textContent='Cancel';
+  actions.append(btnSave,btnCancel);wrap.append(ta,actions);
+  triggerEl.replaceWith(wrap);ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);
+  btnSave.onclick=()=>{l.notes=ta.value.trim();save();renderLogs();showToast('Note saved');};
+  btnCancel.onclick=()=>renderLogs();
+}
 
 // ── STATS ─────────────────────────────────────────────────────────
 function renderStats(){
