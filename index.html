@@ -109,6 +109,7 @@
   .log-badge{display:inline-block;font-size:10px;font-family:'DM Mono',monospace;border-radius:6px;padding:3px 7px;margin-top:5px;}
   .log-badge.paid{color:var(--accent);background:#5eff9e15;}
   .log-badge.unpaid{color:var(--accent2);background:#ff6b6b15;}
+  .log-notes{font-size:12px;color:var(--muted);margin-top:4px;white-space:pre-wrap;word-break:break-word;line-height:1.4;}
 
   .stats-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:12px;}
   .stats-card-title{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:8px;}
@@ -177,6 +178,8 @@
     <div class="timer-display stopped" id="timerDisplay">00:00:00</div>
     <div class="timer-status" id="timerStatus">idle</div>
   </div>
+  <div class="form-label" style="margin-bottom:6px">Notes <span style="font-size:10px;color:var(--muted);text-transform:none;letter-spacing:0">(optional — saved with the session)</span></div>
+  <textarea id="trackNotes" placeholder="What are you working on?" rows="2" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;padding:13px 16px;border-radius:var(--radius);resize:vertical;margin-bottom:12px;color-scheme:dark;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
   <button class="track-btn start" id="trackBtn" onclick="toggleTracking()">▶ Start Tracking</button>
   <button class="manual-toggle" id="manualToggleBtn" onclick="toggleManualForm()">+ Add Time Manually</button>
   <div class="manual-form" id="manualForm">
@@ -195,6 +198,8 @@
       <div><input type="number" id="manualHours" placeholder="Hours" min="0" max="99"></div>
       <div><input type="number" id="manualMinutes" placeholder="Minutes" min="0" max="59"></div>
     </div>
+    <div class="form-label" style="margin-bottom:5px">Notes <span style="font-size:10px;color:var(--muted);text-transform:none;letter-spacing:0">(optional)</span></div>
+    <textarea id="manualNotes" placeholder="What did you work on?" rows="2" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;padding:13px 16px;border-radius:var(--radius);resize:vertical;margin-bottom:10px;color-scheme:dark;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
     <button class="btn-save-manual" onclick="saveManualEntry()">💾 Save Manual Entry</button>
   </div>
 </div>
@@ -532,6 +537,8 @@ function addProject(){
 }
 function deleteProject(id){
   if(state.tracking&&state.tracking.projectId===id){showToast("Can't delete active project",'#ff6b6b');return;}
+  const p=state.projects.find(p=>p.id===id);
+  if(!confirm(`Delete project "${p?p.name:'this project'}" and all its logs? This cannot be undone.`))return;
   state.projects=state.projects.filter(p=>p.id!==id);
   state.logs=state.logs.filter(l=>l.projectId!==id);
   save();renderProjects();renderTrackSelects();
@@ -568,8 +575,10 @@ function stopTracking(){
   if(!state.tracking)return;
   const duration=Date.now()-state.tracking.startTime;
   const project=state.projects.find(p=>p.id===state.tracking.projectId);
-  state.logs.unshift({id:uid(),projectId:state.tracking.projectId,projectName:project?project.name:'Unknown',startTime:state.tracking.startTime,endTime:Date.now(),duration,paid:false,manual:false});
+  const notes=document.getElementById('trackNotes').value.trim();
+  state.logs.unshift({id:uid(),projectId:state.tracking.projectId,projectName:project?project.name:'Unknown',startTime:state.tracking.startTime,endTime:Date.now(),duration,paid:false,manual:false,notes});
   state.tracking=null;save();clearInterval(timerInterval);updateTimerUI();
+  document.getElementById('trackNotes').value='';
   showToast('Session saved! '+fmtH(duration));
 }
 function startTimerTick(){clearInterval(timerInterval);timerInterval=setInterval(tickTimer,1000);tickTimer();}
@@ -612,8 +621,10 @@ function saveManualEntry(){
   const startTime=new Date(dateVal+'T'+(startVal||'00:00')).getTime();
   const duration=(hours*60+minutes)*60000;
   const project=state.projects.find(p=>p.id===pid);
-  state.logs.unshift({id:uid(),projectId:pid,projectName:project?project.name:'Unknown',startTime,endTime:startTime+duration,duration,paid:false,manual:true});
+  const notes=document.getElementById('manualNotes').value.trim();
+  state.logs.unshift({id:uid(),projectId:pid,projectName:project?project.name:'Unknown',startTime,endTime:startTime+duration,duration,paid:false,manual:true,notes});
   state.logs.sort((a,b)=>b.startTime-a.startTime);
+  document.getElementById('manualNotes').value='';
   save();toggleManualForm();showToast('Manual entry saved!');
 }
 
@@ -654,6 +665,7 @@ function renderLogs(){
       <div class="log-info">
         <div class="log-project" style="color:${color}">${l.projectName}${l.manual?'<span class="manual-badge">manual</span>':''}</div>
         <div class="log-date">${fmtDt(l.startTime)}</div>
+        ${l.notes?`<div class="log-notes">${l.notes}</div>`:''}
       </div>
       <div class="log-actions">
         <button class="btn-paid ${l.paid?'is-paid':'unpaid'}" onclick="togglePaid('${l.id}')">${paidIcon}</button>
@@ -676,11 +688,12 @@ function bulkSetPaid(paid){
 }
 function bulkDelete(){
   const count=selectedLogs.size;
+  if(!confirm(`Delete ${count} log${count>1?'s':''}? This cannot be undone.`))return;
   state.logs=state.logs.filter(l=>!selectedLogs.has(l.id));
   save();selectedLogs.clear();showToast(`${count} deleted`,'#ff6b6b');renderLogs();
 }
 function togglePaid(id){const l=state.logs.find(l=>l.id===id);if(l){l.paid=!l.paid;save();renderLogs();showToast(l.paid?'Marked as paid ✓':'Marked as unpaid');}}
-function deleteLog(id){state.logs=state.logs.filter(l=>l.id!==id);save();renderLogs();}
+function deleteLog(id){if(!confirm('Delete this log entry?'))return;state.logs=state.logs.filter(l=>l.id!==id);save();renderLogs();}
 
 // ── STATS ─────────────────────────────────────────────────────────
 function renderStats(){
